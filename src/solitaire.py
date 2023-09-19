@@ -2,7 +2,6 @@ import tkinter as tk
 from PIL import Image, ImageTk
 import os
 import random
-import time
 
 class Tile:
     def __init__(self, position_x, position_y):
@@ -151,17 +150,18 @@ class Solitaire:
             tableau = self.tableaus[tableau_index]
             for _ in range(num):
                 card = next(cards_to_deal)  # Get the next card from the iterator
+                card.x = tableau.position_x  # Set the x coordinate of the card to the tableau's position
+                card.y = tableau.position_y  # Set the y coordinate of the card to the tableau's position
                 self.tableaus[tableau_index].add_card(card)
             print(f"Tableau {tableau_index + 1}: {', '.join(f'{card.value} of {card.suit}' for card in tableau.cards)}")
             tableau_index = (tableau_index + 1) % 7
-        
-        remaining_deck = ", ".join(f'{card.value} of {card.suit}' for card in cards_to_deal)
-        print(f"Remaining Deck: {remaining_deck}")
 
 
         # Deal remaining cards to Deck
         for card in self.cards:
+            card.x, card.y = self.deck.position_x, self.deck.position_y
             self.deck.add_card(card)
+        print(f"Deck: {', '.join(f'{card.value} of {card.suit}' for card in self.deck.cards)}")
         
         self.draw_cards()
 
@@ -171,22 +171,25 @@ class Solitaire:
 
         # Draw cards on Tableaus
         for tableau in self.tableaus:
-            for card_image in tableau.show_cascade():
-                self.canvas.create_image(tableau.position_x, tableau.position_y, anchor=tk.NW, image=card_image)
+            for card in tableau.cards:
+                card_face = card.get_image()
+                self.canvas.create_image(card.x, card.y, anchor=tk.NW, image=card_face)
 
         # Draw cards on Foundations
         for foundation in self.foundations:
-            for card_image in foundation.show_foundation():
-                self.canvas.create_image(foundation.position_x, foundation.position_y, anchor=tk.NW, image=card_image)
+            for card in foundation.cards:
+                card_face = card.get_image()
+                self.canvas.create_image(card.x, card.y, anchor=tk.NW, image=card_face)
 
         # Draw cards on Deck
-        for i, card_back_image in enumerate(self.deck.show_deck()):
-            # Adjust positions for each card in the deck
+        for i, card in enumerate(self.deck.cards):
+            card_back_image = card.get_image()
             self.canvas.create_image(self.deck.position_x + i, self.deck.position_y, anchor=tk.NW, image=card_back_image)
 
         # Draw cards in the Fan
-        for card_image in self.fan.show_fan():
-            self.canvas.create_image(self.fan.position_x, self.fan.position_y, anchor=tk.NW, image=card_image)
+        for card in self.fan.cards:
+            card_face = card.get_image()
+            self.canvas.create_image(self.fan.position_x, self.fan.position_y, anchor=tk.NW, image=card_face)
 
         # Bind the canvas to mouse events
         self.canvas.bind("<ButtonPress-1>", self.on_canvas_click)

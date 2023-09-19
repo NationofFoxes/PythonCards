@@ -11,7 +11,7 @@ card_height = 96  # Height of each card
 
 card_images = []
 
-suits = ["Clubs", "Hearts", "Spades", "Diamonds", "Back1", "Back2"]
+suits = ["Spades", "Hearts", "Clubs", "Diamonds", "Back1", "Back2"]
 values = ["Ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King"]
 
 
