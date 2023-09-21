@@ -52,16 +52,19 @@ class Tableau(Tile):
             return None
 
 class Card:
-    def __init__(self, image, back_image, x, y, suit, value, face_up=False):
+    def __init__(self, image, back_image, x, y, suit, value, face_up=False, current_tableau=None):
         self.image = image
         self.back_image = back_image
         self.x = x
         self.y = y
+        self.original_x = x
+        self.original_y = y
         self.suit = suit
         self.value = value
         self.face_up = face_up
         self.selected = False
         self.drag_data = {"x": 0, "y": 0} 
+        self.current_tableau = current_tableau
 
     def toggle_face_up(self):
         self.face_up = not self.face_up
@@ -95,7 +98,7 @@ class Solitaire:
                 suit, value = os.path.splitext(filename)[0].split("_")
                 card_image = Image.open(os.path.join(card_dir, filename))
                 card_image = card_image.resize((71, 96))
-                card = Card(ImageTk.PhotoImage(card_image), card_back_image, 0, 0, suit, value, face_up=False)
+                card = Card(ImageTk.PhotoImage(card_image), card_back_image, 0, 0, suit, value, face_up=False, current_tableau=None)
                 self.cards.append(card)
                 print("Image loaded: ", filename)
 
@@ -123,6 +126,7 @@ class Solitaire:
         # Initialize the last clicked card as None
         self.last_clicked_card = None
 
+        self.original_tableau = None
 
         # Draw black outlines for the tiles
         for tableau, num in zip(self.tableaus, range(1,8)):
@@ -161,6 +165,7 @@ class Solitaire:
                 card = next(cards_to_deal)  # Get the next card from the iterator
                 card.x = tableau.position_x  # Set the x coordinate of the card to the tableau's position
                 card.y = tableau.position_y + len(tableau.cards) * 30  # Adjust the y coordinate based on the number of cards in the tableau
+                card.current_tableau = tableau
                 self.tableaus[tableau_index].add_card(card)
             print(f"Tableau {tableau_index + 1}: {', '.join(f'{card.value} of {card.suit}' for card in tableau.cards)}")
             tableau_index = (tableau_index + 1) % 7
@@ -204,77 +209,9 @@ class Solitaire:
         self.canvas.bind("<ButtonPress-1>", self.on_canvas_click)
         self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_canvas_release)
-        
 
-    # def on_canvas_click(self, event):
-    #     print("Clicked: ", event.x, ", ", event.y)
-
-    #     # Check if the clicked card is the last card in a tableau
-    #     for tableau in self.tableaus:
-    #         if tableau.cards and tableau.cards[-1].x <= event.x <= tableau.cards[-1].x + 71 and tableau.cards[-1].y <= event.y <= tableau.cards[-1].y + 96:
-    #             top_card = tableau.cards[-1]
-    #             if not top_card.face_up:
-    #                 # Toggle the face-up state for the last card in the tableau
-    #                 top_card.toggle_face_up()
-    #                 self.redraw_card(top_card)
-    #             self.draw_cards()
-    #             return  # Exit the function after handling the click on the tableau's top card
-
-    #     # Variables to track the selected tableau and cards to drag
-    #     selected_tableau = None
-    #     cards_to_drag = []
-
-    #     # Check if a card within a tableau was clicked
-    #     for tableau in self.tableaus:
-    #         for card in tableau.cards:
-    #             if card.x <= event.x <= card.x + 71 and card.y <= event.y <= card.y + 96:
-    #                 if card.face_up:
-    #                     # Select this card and all cards on top of it in the tableau
-    #                     selected_tableau = tableau
-    #                     cards_to_drag = tableau.cards[tableau.cards.index(card):]
-    #                     print("dragging")
-    #                     break  # Exit the loop
-
-    #     if selected_tableau and cards_to_drag:
-    #         # Mark the selected cards for dragging
-    #         for card in cards_to_drag:
-    #             card.selected = True
-    #             # Record the initial offset to maintain relative positions when dragging
-    #             card.drag_data["x"] = event.x - card.x
-    #             card.drag_data["y"] = event.y - card.y
-
-    #     self.draw_cards()
-
-
-    # def on_canvas_drag(self, event):
-    #     for card in self.cards:
-    #         if card.selected:
-    #             card.x = event.x - card.drag_data["x"]
-    #             card.y = event.y - card.drag_data["y"]
-    #     self.draw_cards()
-
-    # def on_canvas_release(self, event):
-    #     if any(card.selected for card in self.cards):
-    #         for tableau in self.tableaus:
-    #             if tableau != cards_to_drag[0].current_tableau:
-    #                 if tableau.cards:
-    #                     top_card = tableau.cards[-1]
-    #                     if top_card.x <= event.x <= top_card.x + 71 and top_card.y <= event.y <= top_card.y + 96:
-    #                         # Move the selected cards to the target tableau
-    #                         for card in cards_to_drag:
-    #                             card.current_tableau.remove_card(card)
-    #                             tableau.add_card(card)
-    #                             card.current_tableau = tableau  # Update the current tableau for the card
-    #                         self.draw_cards()
-    #                         break
-    #         # Reset the dragging flag and selected cards list
-    #         for card in cards_to_drag:
-    #             card.selected = False
-    #         self.draw_cards()
 
     def on_canvas_click(self, event):
-        print("Clicked: ", event.x, ", ", event.y)
-        
         # Check if the clicked card is the last card in a tableau
         for tableau in self.tableaus:
             if tableau.cards and tableau.cards[-1].x <= event.x <= tableau.cards[-1].x + 71 and tableau.cards[-1].y <= event.y <= tableau.cards[-1].y + 96:
@@ -283,39 +220,112 @@ class Solitaire:
                     # Toggle the face-up state for the last card in the tableau
                     top_card.toggle_face_up()
                     self.redraw_card(top_card)
-                # Remember the last card clicked
+
+                # Update the drag_data dictionary for the clicked card
+                top_card.drag_data["x"] = event.x - top_card.x
+                top_card.drag_data["y"] = event.y - top_card.y
+
+                # Store the last clicked card
                 self.last_clicked_card = top_card
+                self.original_tableau = tableau
                 self.draw_cards()
                 return  # Exit the function after handling the click on the tableau's top card
 
+        # Variables to track the selected tableau and cards to drag
+        selected_tableau = None
+        cards_to_drag = []
+
+        # Check if a card within a tableau was clicked
+        for tableau in self.tableaus:
+            for card in tableau.cards:
+                if card.x <= event.x <= card.x + 71 and card.y <= event.y <= card.y + 96:
+                    if card.face_up:
+                        # Select this card and all cards on top of it in the tableau
+                        selected_tableau = tableau
+                        cards_to_drag = tableau.cards[tableau.cards.index(card):]
+                        break  # Exit the loop
+
+        if selected_tableau and cards_to_drag:
+            # Mark the selected cards for dragging
+            for card in cards_to_drag:
+                card.original_x = card.x
+                card.original_y = card.y
+                # Mark the selected cards for dragging
+                card.selected = True
+                # Update the drag_data dictionary for the clicked card
+                card.drag_data["x"] = event.x - card.x
+                card.drag_data["y"] = event.y - card.y
+
+        self.draw_cards()
+
     def on_canvas_drag(self, event):
-        # Check if the last clicked card (if any) is face-up
         if self.last_clicked_card and self.last_clicked_card.face_up:
+            self.canvas.delete("all")  # Clear the canvas
             for card in self.cards:
                 if card == self.last_clicked_card:
                     card.x = event.x - card.drag_data["x"]
                     card.y = event.y - card.drag_data["y"]
-                self.draw_cards()
+                if card.face_up:
+                    card_face = card.get_image()
+                    self.canvas.create_image(card.x, card.y, anchor=tk.NW, image=card_face)
+            self.draw_cards()
+
 
     def on_canvas_release(self, event):
         if self.last_clicked_card and self.last_clicked_card.face_up:
-            for card in self.cards:
-                if card == self.last_clicked_card:
-                    for tableau in self.tableaus:
-                        if tableau != card.current_tableau:
-                            if tableau.cards:
-                                top_card = tableau.cards[-1]
-                                if top_card.x <= event.x <= top_card.x + 71 and top_card.y <= event.y <= top_card.y + 96:
-                                    # Move the last clicked card to the target tableau
-                                    card.current_tableau.remove_card(card)
-                                    tableau.add_card(card)
-                                    card.current_tableau = tableau  # Update the current tableau for the card
-                                    self.draw_cards()
-                                    break
-                    self.draw_cards()
+            card = self.last_clicked_card
+
+            # Use the stored original tableau to snap the card back
+            original_tableau = self.original_tableau
+            card.current_tableau = original_tableau
+            print("Original Tableau:", original_tableau)  # Debugging line
+
+            # Print the contents of each tableau
+            for i, tableau in enumerate(self.tableaus):
+                print(f"Tableau {i + 1}: {[f'{card.value} of {card.suit}' for card in tableau.cards]}")
+
+            # Check if it's a valid move to any tableau or foundation
+            for tableau in self.tableaus:
+                if tableau == original_tableau:
+                    continue  # Skip the original tableau
+
+                if not tableau.cards:
+                    # An empty tableau can accept any card
+                    self.move_card(card, tableau)
+                    return
+
+                top_card = tableau.cards[-1]
+                if self.is_valid_move(card, top_card):
+                    self.move_card(card, tableau)
+                    return
+
+            for foundation in self.foundations:
+                top_card = foundation.cards[-1] if foundation.cards else None
+                if self.is_valid_move(card, top_card):
+                    self.move_card(card, foundation)
+                    return
+
+            # If the card couldn't be moved to a new location, reset its position to the original
+            if card.current_tableau != original_tableau:
+                card.x = card.original_x
+                card.y = card.original_y
+                card.current_tableau = original_tableau  # Set the current_tableau back to the original
+                self.draw_cards()
+            self.original_tableau = None
+            self.draw_cards()
 
     
+    def is_valid_move(self, card, top_card):
+        # Game logic goes here
+        return False
 
+    def move_card(self, card, tableau):
+        if card.current_tableau:
+            card.current_tableau.remove_card(card)
+        if tableau:
+            tableau.add_card(card)
+            card.current_tableau = tableau
+        self.draw_cards()
 
 
     def toggle_face_up(self, event):
