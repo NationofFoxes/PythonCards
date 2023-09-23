@@ -43,6 +43,10 @@ class Tableau(Tile):
         super().__init__(position_x, position_y)
 
     def show_cascade(self):
+        # Update the positions of all cards in the tableau
+        for i, card in enumerate(self.cards):
+            card.x = self.position_x
+            card.y = self.position_y + i * 30  # Adjust the y position based on the card's index
         return [card.image for card in self.cards]
 
     def show_top_card(self):
@@ -258,6 +262,7 @@ class Solitaire:
 
         self.draw_cards()
 
+
     def on_canvas_drag(self, event):
         if self.last_clicked_card and self.last_clicked_card.face_up:
             self.canvas.delete("all")  # Clear the canvas
@@ -274,50 +279,49 @@ class Solitaire:
     def on_canvas_release(self, event):
         if self.last_clicked_card and self.last_clicked_card.face_up:
             card = self.last_clicked_card
-
-            # Use the stored original tableau to snap the card back
             original_tableau = self.original_tableau
             card.current_tableau = original_tableau
-            print("Original Tableau:", original_tableau)  # Debugging line
-
-            # Print the contents of each tableau
-            for i, tableau in enumerate(self.tableaus):
-                print(f"Tableau {i + 1}: {[f'{card.value} of {card.suit}' for card in tableau.cards]}")
 
             # Check if it's a valid move to any tableau or foundation
+            valid_move = False  # Track whether the move is valid
+
             for tableau in self.tableaus:
                 if tableau == original_tableau:
                     continue  # Skip the original tableau
 
                 if not tableau.cards:
                     # An empty tableau can accept any card
-                    self.move_card(card, tableau)
-                    return
+                    if self.is_valid_move(card, None):  # Pass None as the top card of the target tableau
+                        self.move_card(card, tableau)
+                        valid_move = True
+                        break
 
                 top_card = tableau.cards[-1]
                 if self.is_valid_move(card, top_card):
                     self.move_card(card, tableau)
-                    return
+                    valid_move = True
+                    break
 
-            for foundation in self.foundations:
-                top_card = foundation.cards[-1] if foundation.cards else None
-                if self.is_valid_move(card, top_card):
-                    self.move_card(card, foundation)
-                    return
-
-            # If the card couldn't be moved to a new location, reset its position to the original
-            if card.current_tableau != original_tableau:
+            if not valid_move:
+                # If the card couldn't be moved to a new location, reset its position to the original
                 card.x = card.original_x
                 card.y = card.original_y
                 card.current_tableau = original_tableau  # Set the current_tableau back to the original
-                self.draw_cards()
+
+            # Update the display of both the source and target tableaus
+            if original_tableau:
+                original_tableau.show_cascade()
+            if card.current_tableau:
+                card.current_tableau.show_cascade()
+
             self.original_tableau = None
             self.draw_cards()
+
 
     
     def is_valid_move(self, card, top_card):
         # Game logic goes here
-        return False
+        return True
 
     def move_card(self, card, tableau):
         if card.current_tableau:
@@ -325,7 +329,11 @@ class Solitaire:
         if tableau:
             tableau.add_card(card)
             card.current_tableau = tableau
-        self.draw_cards()
+
+        # Update the card's position based on the new tableau
+        card.x = tableau.position_x
+        card.y = tableau.position_y + len(tableau.cards) * 30  # Adjust the y coordinate based on the number of cards in the tableau
+
 
 
     def toggle_face_up(self, event):
@@ -342,18 +350,49 @@ class Solitaire:
             # Draw the back of the card
             self.canvas.create_image(card.x, card.y, anchor=tk.NW, image=card.back_image)
 
-
     def draw_cards(self):
-        # self.canvas.delete("all")  # Clear the canvas
-        for card in self.cards:
-            if card.face_up:
-                # Create an image for the card face
+        # Clear the canvas
+        self.canvas.delete("all")
+
+        self.redraw_tile_outlines()  # Redraw tile outlines
+
+        # Draw cards on Tableaus
+        for tableau in self.tableaus:
+            for card in tableau.cards:
                 card_face = card.get_image()
                 self.canvas.create_image(card.x, card.y, anchor=tk.NW, image=card_face)
-            else:
-                # Create an image for the card back (placeholder)
-                card_back = card.get_image()
-                self.canvas.create_image(card.x, card.y, anchor=tk.NW, image=card_back)
+
+        # Draw cards on Foundations
+        for foundation in self.foundations:
+            for card in foundation.cards:
+                card_face = card.get_image()
+                self.canvas.create_image(card.x, card.y, anchor=tk.NW, image=card_face)
+
+        # Draw cards on Deck
+        deck_x = self.deck.position_x  # Get the x-coordinate of the Deck
+        for card in self.deck.cards:
+            card_back_image = card.get_image()
+            self.canvas.create_image(deck_x, self.deck.position_y, anchor=tk.NW, image=card_back_image)
+
+        # Draw cards in the Fan
+        for card in self.fan.cards:
+            card_face = card.get_image()
+            self.canvas.create_image(self.fan.position_x, self.fan.position_y, anchor=tk.NW, image=card_face)
+
+        # Bind the canvas to mouse events
+        self.canvas.bind("<ButtonPress-1>", self.on_canvas_click)
+        self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_canvas_release)
+
+
+    def redraw_tile_outlines(self):
+        for tableau in self.tableaus:
+            self.draw_tile_outline(tableau)
+        for foundation in self.foundations:
+            self.draw_tile_outline(foundation)
+        self.draw_tile_outline(self.deck)
+        self.draw_tile_outline(self.fan)
+
 
 
 if __name__ == "__main__":
