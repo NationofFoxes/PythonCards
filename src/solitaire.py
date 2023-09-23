@@ -123,7 +123,7 @@ class Solitaire:
         self.deck = Deck()
         self.fan = Fan()
 
-        # Initializa list for dragging stack of cards, and also boolean to control the function
+        # Initialize list for dragging stack of cards, and also boolean to control the function
         self.selected_cards = []
         self.dragging = False
 
@@ -244,6 +244,10 @@ class Solitaire:
             for card in tableau.cards:
                 if card.x <= event.x <= card.x + 71 and card.y <= event.y <= card.y + 96:
                     if card.face_up:
+                        # Toggle this card's selection
+                        card.selected = not card.selected
+
+                    if card.selected:
                         # Select this card and all cards on top of it in the tableau
                         selected_tableau = tableau
                         cards_to_drag = tableau.cards[tableau.cards.index(card):]
@@ -254,8 +258,6 @@ class Solitaire:
             for card in cards_to_drag:
                 card.original_x = card.x
                 card.original_y = card.y
-                # Mark the selected cards for dragging
-                card.selected = True
                 # Update the drag_data dictionary for the clicked card
                 card.drag_data["x"] = event.x - card.x
                 card.drag_data["y"] = event.y - card.y
@@ -299,7 +301,7 @@ class Solitaire:
                 top_card = tableau.cards[-1]
                 if self.is_valid_move(card, top_card):
                     self.move_card(card, tableau)
-                    valid_move = True
+                    # valid_move = True
                     break
 
             if not valid_move:
@@ -308,20 +310,29 @@ class Solitaire:
                 card.y = card.original_y
                 card.current_tableau = original_tableau  # Set the current_tableau back to the original
 
+            # Reset the selected attribute for all cards
+            for tableau in self.tableaus:
+                for tableau_card in tableau.cards:
+                    tableau_card.selected = False
+
             # Update the display of both the source and target tableaus
             if original_tableau:
                 original_tableau.show_cascade()
+                print(f"Tableau {self.tableaus.index(original_tableau) + 1}: {[f'{card.value} of {card.suit}' for card in original_tableau.cards]}")
+
             if card.current_tableau:
                 card.current_tableau.show_cascade()
+                print(f"Tableau {self.tableaus.index(card.current_tableau) + 1}: {[f'{card.value} of {card.suit}' for card in card.current_tableau.cards]}")
 
             self.original_tableau = None
+            card = None
             self.draw_cards()
 
 
     
     def is_valid_move(self, card, top_card):
         # Game logic goes here
-        return True
+        return False
 
     def move_card(self, card, tableau):
         if card.current_tableau:
